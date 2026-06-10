@@ -1,0 +1,14 @@
+schema_version: 0.1.0
+project_name: example
+default_language: zh
+paths:
+  sources_manifest: sources/sources.manifest.jsonl
+  local_overrides: sources/local_overrides.yaml
+  claims: claims/claims.jsonl
+  index: index/search.sqlite
+policies:
+  facts_must_cite_primary_sources: true
+  manual_is_not_evidence: true
+  default_source_sync_policy: local
+  pdf_output_requires_latex: true
+

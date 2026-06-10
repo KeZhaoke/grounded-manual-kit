@@ -17,5 +17,10 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Local evidence-pack registry. It can contain absolute paths and private
+# project names.
+manual_packs.local.yaml
+manual_packs.local.yml
+
 .agents/
 .codex/

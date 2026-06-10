@@ -1,0 +1,43 @@
+# Local grounded-manual evidence pack registry example.
+#
+# Copy this file to one of these local-only locations and edit the paths:
+# - manual_packs.local.yaml
+# - ~/.codex/grounded-manual/packs.local.yaml
+#
+# This registry is a routing table, not an evidence source. Use it to find the
+# right project or pack, then answer from that pack's indexed evidence.
+
+schema_version: 1
+
+packs:
+  - id: grounded-manual-kit
+    enabled: true
+    aliases:
+      - gmk
+      - grounded manual kit
+    project_root: /path/to/grounded-manual-kit
+    pack_root: /path/to/grounded-manual-kit/docs/grounded_manual
+    description: Local evidence-pack toolkit for source-grounded manuals.
+    tags:
+      - manual
+      - evidence
+      - citation
+      - codex
+    languages:
+      - en
+      - zh
+
+  - id: my-research-pack
+    enabled: true
+    aliases:
+      - research notes
+      - lab manual
+    project_root: /path/to/my-research-project
+    # If pack_root is omitted, agents should use:
+    # <project_root>/docs/grounded_manual
+    description: Personal research evidence pack.
+    tags:
+      - research
+      - notes
+    languages:
+      - zh

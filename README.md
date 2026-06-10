@@ -30,6 +30,7 @@ grounded-manual build-index --root /path/to/project
 grounded-manual search --root /path/to/project "installation"
 ```
 
+For human-friendly prompt recipes, see [ASKING_CODEX.md](ASKING_CODEX.md).
 For local AI agents, see [AI_AGENT_QUICKSTART.md](AI_AGENT_QUICKSTART.md).
 
 ## Evidence Rules

@@ -64,6 +64,11 @@ Evidence hierarchy:
 4. Derived outputs: `manual/**`; use only for navigation and readability.
 5. Index: `index/search.sqlite`; a rebuildable cache.
 
+`grounded-manual audit-claims` is a locator audit. It can resolve declared
+spans and find candidate evidence, but it does not automatically prove semantic
+support. Treat `supported`, `partial`, `contradicted`, and `stale` as human or
+external-review states unless a separate semantic audit was explicitly done.
+
 ## Expected Project Layout
 
 ```text
@@ -93,6 +98,7 @@ grounded-manual register-source path/to/source.m --source-id source_m --kind cod
 grounded-manual build-index
 grounded-manual search "question terms"
 grounded-manual verify-sources --mark-stale
+grounded-manual audit-claims
 grounded-manual render
 ```
 
@@ -134,6 +140,7 @@ Recommended answer shape:
   manual body.
 - If a claim has no reliable source span, mark it as `draft` or
   `needs_review`, not as fact.
+- Do not treat a locator-audit `needs_review` result as semantic support.
 - Preserve clear labels for personal notes.
 
 ## Cross-Platform Rules

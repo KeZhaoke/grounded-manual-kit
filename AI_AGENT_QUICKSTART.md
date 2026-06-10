@@ -21,6 +21,12 @@ Primary evidence is:
 - user notes, clearly labeled as notes
 - `claims/claims.jsonl` plus its source spans and audit state
 
+`grounded-manual audit-claims` is a locator audit. It can check whether declared
+spans resolve and can find candidate evidence, but it does not automatically
+confirm semantic support. Claims marked `supported`, `partial`,
+`contradicted`, or `stale` should be treated as human or external review
+states, not as statuses granted by the locator audit.
+
 ## First Actions In A Project Folder
 
 1. Check whether the toolkit command exists:
@@ -118,6 +124,11 @@ Run:
 grounded-manual audit-claims --write
 ```
 
+After `--write`, precise span matches normally become `needs_review` with an
+audit reason such as `span resolved, semantic support not checked`. A `note`
+claim is skipped by the locator audit, and existing `supported`, `partial`,
+`contradicted`, or `stale` statuses are preserved by default.
+
 ## How To Answer User Questions
 
 Use this response shape:
@@ -151,4 +162,3 @@ Rules:
   `docs/grounded_manual/sources/local_overrides.yaml`; it is ignored by Git.
 - If `pypdf` is missing, PDF extraction will fail with an install hint.
 - If LaTeX is missing, keep `manual.ai.md` as the active output.
-

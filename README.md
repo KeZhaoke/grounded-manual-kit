@@ -30,6 +30,9 @@ grounded-manual build-index --root /path/to/project
 grounded-manual search --root /path/to/project "installation"
 ```
 
+See `examples/minimal_project/` for a tiny reproducible pack with relative
+fixtures, claims, extracted PDF text, and expected audit output.
+
 For human-friendly prompt recipes, see [ASKING_CODEX.md](ASKING_CODEX.md).
 For local AI agents, see [AI_AGENT_QUICKSTART.md](AI_AGENT_QUICKSTART.md).
 
@@ -39,6 +42,23 @@ For local AI agents, see [AI_AGENT_QUICKSTART.md](AI_AGENT_QUICKSTART.md).
 - `claims/claims.jsonl` records auditable facts.
 - `manual/manual.ai.md`, `manual/manual.tex`, and `manual/manual.pdf` are derived outputs.
 - `index/search.sqlite` is a local cache and should be rebuilt per platform.
+
+## Audit Boundary
+
+`grounded-manual audit-claims` is a locator audit. It can resolve declared
+spans and find candidate evidence, but it does not prove that the evidence
+semantically supports a claim.
+
+With `--write`, the command only updates `draft`, `needs_review`, and
+`unsupported` claims. It preserves `supported`, `partial`, `contradicted`,
+`stale`, and `note` statuses by default. Treat `supported` and related
+high-confidence statuses as human or external semantic-review results.
+
+Audit logs include both the locator result and the final claim status:
+`audit_result`, `claim_status_before`, `claim_status_after`, and
+`write_action`. Hits are tagged as `span_resolved` or `fts_candidate`. The
+legacy log field `status` is an alias for `audit_result`, not necessarily the
+final claim status after preservation rules are applied.
 
 ## Cross-Platform Migration
 

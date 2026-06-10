@@ -45,6 +45,11 @@ Discuss only. Do not edit files or run commands that write files.
   derived outputs. They are useful for navigation, but they do not prove facts.
 - Private notes can be searched locally, but they should be labeled as notes,
   interpretation, or experience.
+- `audit-claims` is a locator audit. It resolves spans and finds candidate
+  evidence; it does not prove semantic support by itself.
+- `supported`, `partial`, `contradicted`, and `stale` should be treated as
+  human or external semantic-review states unless the user explicitly asks for
+  a separate review.
 - If no indexed source supports an answer, Codex should say so plainly.
 - `index/search.sqlite` is a rebuildable local cache. Rebuild it after moving a
   project or changing sources.
@@ -166,12 +171,15 @@ If the index is missing or stale, Codex may rebuild it before answering.
 Ask:
 
 ```text
-Use citation-auditor to audit claims.jsonl. Report partial, unsupported, stale,
-or contradicted claims. Do not write changes.
+Use citation-auditor to audit claims.jsonl. Report unresolved spans, candidate
+evidence, unsupported claims, stale claims, and anything needing semantic
+review. Do not write changes.
 ```
 
 Codex should resolve each claim's declared source spans first, search evidence
-only when needed, and report problems with suggested fixes.
+only when needed, and report problems with suggested fixes. The CLI audit is a
+locator audit: it can produce `needs_review` or `unsupported`, but it should not
+be treated as automatic semantic proof.
 
 Files that may change:
 
@@ -186,6 +194,10 @@ Use citation-auditor to audit claims.jsonl and write updated statuses.
 Files that may also change:
 
 - `docs/grounded_manual/claims/claims.jsonl`
+
+With `--write`, the locator audit updates only `draft`, `needs_review`, and
+`unsupported` claims. It preserves `supported`, `partial`, `contradicted`,
+`stale`, and `note` statuses by default.
 
 ### Sources Changed
 

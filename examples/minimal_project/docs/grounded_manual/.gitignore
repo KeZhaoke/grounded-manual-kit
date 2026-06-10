@@ -1,0 +1,22 @@
+# Local source mappings and private data
+sources/local_overrides.yaml
+notes/private_notes.local.md
+extracted/local/
+
+# Rebuildable caches and logs
+index/
+logs/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.env
+
+# Generated or local-only artifacts
+manual/*.pdf
+manual/*.aux
+manual/*.log
+manual/*.out
+manual/*.toc
+manual/*.fls
+manual/*.fdb_latexmk
+**/.DS_Store

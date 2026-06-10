@@ -29,7 +29,10 @@ Allowed evidence:
 2. Read `claims/claims.jsonl`.
 3. For each claim, resolve declared source spans first.
 4. If declared spans fail, search evidence for possible support.
-5. Assign one status:
+5. Separate locator-audit output from semantic judgment. The CLI
+   `grounded-manual audit-claims` resolves spans and candidates, but it does
+   not automatically prove support.
+6. Assign one status only after semantic review:
    - `supported`: declared evidence supports the claim.
    - `partial`: evidence supports only part of the claim.
    - `unsupported`: no indexed evidence supports it.
@@ -37,7 +40,7 @@ Allowed evidence:
    - `stale`: source hash or span hash changed.
    - `needs_review`: possible evidence exists but needs human review.
    - `note`: claim is explicitly personal note/interpretation.
-6. Record query terms, hits, status, and reason in logs.
+7. Record query terms, hits, status, and reason in logs.
 
 Preferred command:
 
@@ -46,6 +49,12 @@ grounded-manual audit-claims
 ```
 
 Use `--write` only when the user wants claim statuses updated.
+
+With `--write`, the built-in locator audit updates only `draft`,
+`needs_review`, and `unsupported` claims. It preserves `supported`, `partial`,
+`contradicted`, `stale`, and `note` statuses by default. Precise span matches
+are written as `needs_review` with a reason such as `span resolved, semantic
+support not checked`.
 
 ## Reporting
 
@@ -60,4 +69,3 @@ Suggested fix: Narrow claim or add correct source span.
 ```
 
 Do not soften missing citations. If the evidence is not there, say so.
-

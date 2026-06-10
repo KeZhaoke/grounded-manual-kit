@@ -316,6 +316,8 @@ def template_claims() -> str:
     return (
         "# JSONL claim registry. Status values: draft, supported, partial, "
         "unsupported, contradicted, stale, needs_review, note.\n"
+        "# audit-claims is a locator audit: it can resolve spans and candidates,\n"
+        "# but it does not automatically grant semantic support.\n"
     )
 
 
@@ -847,6 +849,74 @@ def verify_sources(args: argparse.Namespace) -> None:
         raise SystemExit(3)
 
 
+AUDIT_OVERWRITABLE_STATUSES = {"draft", "needs_review", "unsupported"}
+AUDIT_PRESERVED_STATUSES = {"supported", "partial", "contradicted", "stale"}
+
+
+def span_chunk_hash(span: dict) -> object | None:
+    return span.get("chunk_hash") or span.get("span_hash")
+
+
+def span_line_bounds(span: dict) -> tuple[object | None, object | None]:
+    line_start = span.get("line_start")
+    if line_start is None:
+        line_start = span.get("start_line")
+    if line_start is None:
+        line_start = span.get("line")
+    line_end = span.get("line_end")
+    if line_end is None:
+        line_end = span.get("end_line")
+    if line_end is None:
+        line_end = line_start
+    return line_start, line_end
+
+
+def span_has_precise_locator(span: dict) -> bool:
+    line_start, line_end = span_line_bounds(span)
+    return (
+        span.get("page") is not None
+        or span_chunk_hash(span) is not None
+        or (line_start is not None and line_end is not None)
+    )
+
+
+def audit_hit(row: sqlite3.Row | dict, hit_type: str) -> dict:
+    return {
+        "hit_type": hit_type,
+        "doc_id": row["doc_id"],
+        "source_id": row["source_id"],
+        "path": row["path"],
+        "page": row["page"],
+        "line_start": row["line_start"],
+        "line_end": row["line_end"],
+        "chunk_hash": row["chunk_hash"],
+    }
+
+
+def resolve_precise_span(con: sqlite3.Connection, span: dict) -> sqlite3.Row | None:
+    sid = span.get("source_id")
+    if not sid or not span_has_precise_locator(span):
+        return None
+    page = span.get("page")
+    chunk_hash = span_chunk_hash(span)
+    line_start, line_end = span_line_bounds(span)
+    clauses = ["source_id = ?", "evidence_allowed = 1"]
+    params: list[object] = [sid]
+    if page is not None:
+        clauses.append("page = ?")
+        params.append(page)
+    if chunk_hash:
+        clauses.append("chunk_hash = ?")
+        params.append(chunk_hash)
+    if line_start is not None and line_end is not None:
+        clauses.append("line_start <= ?")
+        clauses.append("line_end >= ?")
+        params.extend([line_end, line_start])
+    return con.execute(
+        f"SELECT * FROM docs WHERE {' AND '.join(clauses)} LIMIT 1", params
+    ).fetchone()
+
+
 def audit_claims(args: argparse.Namespace) -> None:
     root = resolve_root(args.root)
     db_path = root / "index" / "search.sqlite"
@@ -860,35 +930,58 @@ def audit_claims(args: argparse.Namespace) -> None:
     for claim in claims:
         if not claim.get("id"):
             continue
+        status_before = claim.get("status") or "draft"
+        audited_at = utc_now()
+        if status_before == "note":
+            audit = {
+                "claim_id": claim.get("id"),
+                "status": "skipped_note",
+                "audit_result": "skipped_note",
+                "claim_status_before": status_before,
+                "claim_status_after": status_before,
+                "write_action": "skipped",
+                "reason": "note claims are not locator-audited",
+                "audited_at": audited_at,
+                "tool": TOOL_NAME,
+                "tool_version": TOOL_VERSION,
+                "query_terms": [],
+                "hits": [],
+            }
+            audited.append(audit)
+            print(f"{claim.get('id')}: skipped_note - {audit['reason']}")
+            continue
+
         text = claim.get("text", "")
         spans = claim.get("source_spans", []) or claim.get("sources", [])
+        precise_spans = []
+        source_only_spans = []
         span_hits = []
         for span in spans:
             if not isinstance(span, dict):
                 continue
-            sid = span.get("source_id")
-            page = span.get("page")
-            chunk_hash = span.get("chunk_hash") or span.get("span_hash")
-            clauses = ["source_id = ?", "evidence_allowed = 1"]
-            params: list[object] = [sid]
-            if page is not None:
-                clauses.append("page = ?")
-                params.append(page)
-            if chunk_hash:
-                clauses.append("chunk_hash = ?")
-                params.append(chunk_hash)
-            found = con.execute(
-                f"SELECT * FROM docs WHERE {' AND '.join(clauses)} LIMIT 1", params
-            ).fetchone()
+            if not span.get("source_id"):
+                continue
+            if span_has_precise_locator(span):
+                precise_spans.append(span)
+            else:
+                source_only_spans.append(span)
+                continue
+            found = resolve_precise_span(con, span)
             if found:
-                span_hits.append(dict(found))
+                span_hits.append(found)
 
         if span_hits:
-            status = "supported"
-            reason = "all checked spans resolved" if len(span_hits) == len(spans) else "some spans resolved"
-            if len(span_hits) < len(spans):
-                status = "partial"
+            audit_result = "needs_review"
+            if len(span_hits) == len(precise_spans) and not source_only_spans:
+                reason = "span resolved, semantic support not checked"
+            elif source_only_spans:
+                reason = "some precise spans resolved; source-only spans are weak locators; semantic support not checked"
+            else:
+                reason = "some precise spans resolved; semantic support not checked"
+            hit_rows = [audit_hit(row, "span_resolved") for row in span_hits]
+            terms = []
         else:
+            terms = query_terms(text)
             query = fts_query(text)
             try:
                 rows = con.execute(
@@ -904,39 +997,61 @@ def audit_claims(args: argparse.Namespace) -> None:
             except sqlite3.OperationalError:
                 rows = []
             if rows:
-                status = "needs_review"
-                reason = "text search found possible evidence, but no declared span resolved"
-                span_hits = [dict(r) for r in rows]
+                audit_result = "needs_review"
+                if source_only_spans and not precise_spans:
+                    reason = "declared spans only named source_id; source-only locator is not a precise span; text search found possible evidence"
+                elif precise_spans:
+                    reason = "declared precise spans did not resolve; text search found possible evidence"
+                else:
+                    reason = "text search found possible evidence, but no declared span resolved"
+                hit_rows = [audit_hit(row, "fts_candidate") for row in rows]
             else:
-                status = "unsupported"
-                reason = "no declared span or text-search evidence found"
+                audit_result = "unsupported"
+                if source_only_spans and not precise_spans:
+                    reason = "declared spans only named source_id; source-only locator is not a precise span; no text-search evidence found"
+                elif precise_spans:
+                    reason = "declared precise spans did not resolve and no text-search evidence found"
+                else:
+                    reason = "no declared span or text-search evidence found"
+                hit_rows = []
+
+        if not args.write:
+            status_after = status_before
+            write_action = "not_written"
+        elif status_before in AUDIT_OVERWRITABLE_STATUSES:
+            status_after = audit_result
+            write_action = "updated"
+        elif status_before in AUDIT_PRESERVED_STATUSES:
+            status_after = status_before
+            write_action = "preserved"
+        else:
+            status_after = status_before
+            write_action = "preserved_unknown_status"
 
         audit = {
             "claim_id": claim.get("id"),
-            "status": status,
+            "status": audit_result,
+            "audit_result": audit_result,
+            "claim_status_before": status_before,
+            "claim_status_after": status_after,
+            "write_action": write_action,
             "reason": reason,
-            "audited_at": utc_now(),
+            "audited_at": audited_at,
             "tool": TOOL_NAME,
             "tool_version": TOOL_VERSION,
-            "hits": [
-                {
-                    "doc_id": h["doc_id"],
-                    "source_id": h["source_id"],
-                    "path": h["path"],
-                    "page": h["page"],
-                    "line_start": h["line_start"],
-                    "line_end": h["line_end"],
-                    "chunk_hash": h["chunk_hash"],
-                }
-                for h in span_hits
-            ],
+            "query_terms": terms,
+            "hits": hit_rows,
         }
         audited.append(audit)
-        print(f"{claim.get('id')}: {status} - {reason}")
+        suffix = f" -> {status_after}" if status_after != audit_result else ""
+        print(f"{claim.get('id')}: {audit_result}{suffix} - {reason}")
         if args.write:
-            claim["status"] = status
-            claim["last_audited_at"] = audit["audited_at"]
-            claim["audit_reason"] = reason
+            if write_action == "updated":
+                claim["status"] = status_after
+                claim["last_audited_at"] = audit["audited_at"]
+                claim["audit_reason"] = reason
+            elif write_action in {"preserved", "preserved_unknown_status"}:
+                claim["last_audited_at"] = audit["audited_at"]
 
     con.close()
     log_path = root / "logs" / f"audit_{_dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"

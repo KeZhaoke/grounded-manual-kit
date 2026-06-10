@@ -1,0 +1,8 @@
+# JSONL claim registry. Status values: draft, supported, partial, unsupported, contradicted, stale, needs_review, note.
+# audit-claims is a locator audit: it can resolve spans and candidates,
+# but it does not automatically grant semantic support.
+{"id": "C-001", "source_spans": [{"chunk_hash": "5f62450d49c89db16be26c37b6b96979773ddfa41d5c511e65b7417c025644d1", "source_id": "evidence"}], "status": "draft", "text": "The text fixture says derived manuals are not primary evidence."}
+{"id": "C-002", "source_spans": [{"chunk_hash": "8fb61213989414bc50d68bec84a605f8cead4be786dfe6ad8e6cb12fc4a5bf6a", "page": 1, "source_id": "tiny_pdf"}], "status": "draft", "text": "The PDF fixture contains Tiny PDF evidence text."}
+{"id": "C-003", "source_spans": [], "status": "draft", "text": "zzqnonmatchterm never appears anywhere"}
+{"id": "C-004", "source_spans": [{"source_id": "evidence"}], "status": "draft", "text": "Alpha locator claim evidence line."}
+{"id": "N-001", "source_spans": [{"source_id": "evidence"}], "status": "note", "text": "This is a personal note and is skipped by locator audit."}

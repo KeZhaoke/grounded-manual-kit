@@ -10,6 +10,45 @@ metadata:
 Use this skill when the user wants a reusable, local, citation-grounded manual
 or wants answers from a `docs/grounded_manual/` evidence pack.
 
+## Pack Lookup
+
+When selecting a pack, prefer the closest explicit or current-project evidence
+pack before using the local registry.
+
+Selection order:
+
+1. If the user gives an exact `docs/grounded_manual` path, use it after checking
+   that `project.yaml` exists.
+2. If the user gives a project root path, use its `docs/grounded_manual` after
+   checking that `project.yaml` exists.
+3. Check the current directory and its parents for
+   `docs/grounded_manual/project.yaml`.
+4. Use the local evidence-pack registry only when no current-project pack is
+   found, or when the user names a project, software package, topic, or alias
+   that should be resolved outside the current project.
+
+Registry lookup order:
+
+1. Path in `GROUNDED_MANUAL_REGISTRY`, if set.
+2. `~/.codex/grounded-manual/packs.local.yaml`.
+3. `manual_packs.local.yaml` in the `grounded-manual-kit` directory.
+
+The registry is a routing table, not evidence. Use it only to select a pack.
+Then answer from that pack's original sources, extracted spans, code spans,
+notes, or claims.
+
+Registry behavior:
+
+- Ignore entries where `enabled` is false.
+- Match by `id`, `aliases`, `description`, or `tags`.
+- Use `pack_root` when present.
+- If only `project_root` is present, use `project_root/docs/grounded_manual`.
+- After resolving a pack root, verify that `project.yaml` exists there. If it
+  does not, treat the registry entry as stale and ask for an updated path.
+- Say which pack was selected before answering.
+- Ask the user when multiple enabled packs match equally well.
+- Do not expose local absolute paths in final answers unless the user asks.
+
 ## Core Rule
 
 Do not treat `manual/manual.ai.md`, `manual/manual.tex`, or `manual/manual.pdf`
@@ -65,13 +104,14 @@ python grounded-manual-kit/scripts/grounded_manual.py <command>
 
 ## Answering Workflow
 
-1. Run or request `grounded-manual build-index` if `index/search.sqlite` is
+1. Select the pack using the lookup order above.
+2. Run or request `grounded-manual build-index` if `index/search.sqlite` is
    missing or stale.
-2. Search the evidence layer. Use `--include-manual` only to locate explanatory
+3. Search the evidence layer. Use `--include-manual` only to locate explanatory
    sections, never to prove facts.
-3. Cite PDF page, source path and line, chunk id/hash, or note path.
-4. Label user notes as personal notes, interpretation, or experience.
-5. If no source supports the claim, say that no indexed source was found.
+4. Cite PDF page, source path and line, chunk id/hash, or note path.
+5. Label user notes as personal notes, interpretation, or experience.
+6. If no source supports the claim, say that no indexed source was found.
 
 Recommended answer shape:
 

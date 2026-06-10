@@ -1,26 +1,45 @@
-$ErrorActionPreference = "Stop"
+param(
+    [switch]$Symlink,
+    [switch]$Copy,
+    [string]$Dest,
+    [switch]$Force,
+    [switch]$DryRun,
+    [switch]$List
+)
 
+$ErrorActionPreference = "Stop"
 $KitDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".codex" }
-$SkillDir = Join-Path $CodexHome "skills"
 $BinDir = Join-Path $HOME ".local\bin"
 
-New-Item -ItemType Directory -Force -Path $SkillDir | Out-Null
-New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
+$SkillArgs = @()
+if ($Symlink) {
+    $SkillArgs += "-Symlink"
+} elseif (-not $Copy) {
+    $SkillArgs += "-Copy"
+}
+if ($Copy) { $SkillArgs += "-Copy" }
+if ($Dest) { $SkillArgs += @("-Dest", $Dest) }
+if ($Force) { $SkillArgs += "-Force" }
+if ($DryRun) { $SkillArgs += "-DryRun" }
+if ($List) { $SkillArgs += "-List" }
 
-$GroundedSkill = Join-Path $SkillDir "grounded-manual"
-$AuditorSkill = Join-Path $SkillDir "citation-auditor"
-Remove-Item -Force -Recurse -ErrorAction SilentlyContinue $GroundedSkill
-Remove-Item -Force -Recurse -ErrorAction SilentlyContinue $AuditorSkill
-Copy-Item -Recurse (Join-Path $KitDir "skills\grounded-manual") $GroundedSkill
-Copy-Item -Recurse (Join-Path $KitDir "skills\citation-auditor") $AuditorSkill
+& (Join-Path $KitDir "scripts\install-codex-skills.ps1") @SkillArgs
+
+if ($List) {
+    exit 0
+}
+
+if ($DryRun) {
+    Write-Host "would install commands into $BinDir"
+    exit 0
+}
+
+New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 
 $GroundedCmd = Join-Path $BinDir "grounded-manual.cmd"
 $AuditorCmd = Join-Path $BinDir "citation-auditor.cmd"
 Set-Content -Encoding ASCII $GroundedCmd "@echo off`r`npython `"$KitDir\scripts\grounded_manual.py`" %*`r`n"
 Set-Content -Encoding ASCII $AuditorCmd "@echo off`r`npython `"$KitDir\scripts\grounded_manual.py`" audit-claims %*`r`n"
 
-Write-Host "Installed skills into $SkillDir"
 Write-Host "Installed commands into $BinDir"
 Write-Host "Run: grounded-manual doctor"
-
